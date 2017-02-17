@@ -1,11 +1,11 @@
-import { series, forEachOf } from 'async';
+import * as async from 'async';
 import { IModelRoute } from 'nodejs-utils';
 import { strapFramework } from 'restify-utils';
-import { all_models_and_routes, strapFrameworkKwargs, IObjectCtor, c } from './../../../main';
+import { all_models_and_routes, strapFrameworkKwargs, IObjectCtor, c } from '../../../main';
 import { tearDownConnections } from '../../shared_tests';
 import { Collection, Connection } from 'waterline';
 import { Server } from 'restify';
-import { AddressBookTestSDK } from './contact_test_sdk';
+import { ContactTestSDK } from './contact_test_sdk';
 import { user_mocks } from '../user/user_mocks';
 import { ITestSDK } from '../auth/auth_test_sdk.d';
 import { AuthTestSDK } from '../auth/auth_test_sdk';
@@ -25,8 +25,8 @@ const models_and_routes: IModelRoute = {
 process.env['NO_SAMPLE_DATA'] = 'true';
 const user_mocks_subset: Array<IUserBase> = user_mocks.successes.slice(20, 30);
 
-describe('Message::routes', () => {
-    let sdk: AddressBookTestSDK, auth_sdk: ITestSDK, app: Server,
+describe('Contact::routes', () => {
+    let sdk: ContactTestSDK, auth_sdk: ITestSDK, app: Server,
         mocks: {successes: Array<IContactBase>, failures: Array<{}>};
 
     before('tearDownConnections', done => tearDownConnections(c.connections, done));
@@ -42,22 +42,24 @@ describe('Message::routes', () => {
             c.connections = _connections;
             c.collections = _collections;
             app = _app;
-            sdk = new AddressBookTestSDK(app);
+            sdk = new ContactTestSDK(app);
             auth_sdk = new AuthTestSDK(app);
             mocks = contact_mocks(user_mocks_subset);
             return done();
         }
     })));
 
-    before('Create & auth users', done => forEachOf(user_mocks_subset, (user: IUser, idx: number, callback) => series([
-        cb => auth_sdk.register(user, cb),
-        cb => auth_sdk.login(user, cb)
-    ], (err, results: Array<Response>) => {
-        if (err) return callback(err);
-        user['access_token'] = results[1].body.access_token;
-        user_mocks_subset[idx] = user;
-        return callback();
-    }), done));
+    before('Create & auth users', done => async.forEachOf(user_mocks_subset, (user: IUser, idx: number, callback) =>
+        async.series([
+            cb => auth_sdk.register(user, cb),
+            cb => auth_sdk.login(user, cb)
+        ], (err, results: Array<Response>) => {
+            if (err) return callback(err);
+            user['access_token'] = results[1].body.access_token;
+            user_mocks_subset[idx] = user;
+            return callback();
+        }), done)
+    );
 
     // Deregister database adapter connections
     after('unregister all users', done => auth_sdk.unregister_all(user_mocks_subset, done));
@@ -70,7 +72,7 @@ describe('Message::routes', () => {
             sdk.create(user_mocks_subset[0].access_token, mocks.successes[0], done)
         );
 
-        it('GET should get all contacts', done => series([
+        it('GET should get all contacts', done => async.series([
                 cb => sdk.create(user_mocks_subset[0].access_token, mocks.successes[0], cb),
                 cb => sdk.getAll(user_mocks_subset[0].access_token, mocks.successes[0], cb)
             ], done)

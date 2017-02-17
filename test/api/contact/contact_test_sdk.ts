@@ -14,7 +14,7 @@ const contact_schema = require('./schema.json');
 
 chai.use(chaiJsonSchema);
 
-export class AddressBookTestSDK {
+export class ContactTestSDK {
     constructor(public app) {
     }
 

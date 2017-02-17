@@ -1,13 +1,18 @@
+import { homedir } from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 import * as redis from 'redis';
 import { Collection, Connection } from 'waterline';
+import * as waterline_nedb from 'waterline-nedb';
+import * as waterline_tingo from 'sails-tingo';
 import * as waterline_postgres from 'waterline-postgresql';
 import { createLogger } from 'bunyan';
 import { Server } from 'restify';
-import { uri_to_config, populateModelRoutes, IModelRoute } from 'nodejs-utils';
+import { populateModelRoutes, IModelRoute, uri_to_config } from 'nodejs-utils';
 import { strapFramework, IStrapFramework } from 'restify-utils';
 import { SampleData } from './test/SampleData';
 
-export const package_ = require('./package');
+export const package_ = Object.freeze(require('./package'));
 export const logger = createLogger({
     name: 'main'
 });
@@ -23,9 +28,22 @@ declare const Object: IObjectCtor;
 // Database waterline_config
 const db_uri: string = process.env['RDBMS_URI'] || process.env['DATABASE_URL'] || process.env['POSTGRES_URL'];
 
+const db_path = (r => !!r ? r : path.join(homedir(), '.glaucoma_risk_calculator'))(
+    process.argv.length > 2 ? process.argv.slice(2).reduce((acc, arg) =>
+            ['--dbpath', '-d'].indexOf(acc) > -1 ? acc = arg : null
+        ) : path.join(homedir(), '.glaucoma_risk_calculator'));
+
+function init_db_dir(db_type, cb) {
+    ['nedb', 'tingo'].indexOf(db_type) > -1 ?
+        fs.access(db_path, err => {
+            if (!err) return cb();
+            fs.mkdir(db_path, e => cb(err));
+        }) : cb();
+}
+
+/* TODO: Put this all in tiered environment-variable powered .json file */
 
 export const waterline_config = Object.freeze({
-    /* TODO: Put this all in tiered environment-variable powered .json file */
     adapters: {
         url: db_uri,
         postgres: waterline_postgres
@@ -34,7 +52,7 @@ export const waterline_config = Object.freeze({
         migrate: 'create'
     },
     connections: {
-        postgres: {
+        main_db: {
             adapter: 'postgres',
             connection: uri_to_config(db_uri),
             pool: {
@@ -42,6 +60,42 @@ export const waterline_config = Object.freeze({
                 max: 20
             }
         }
+    }
+});
+
+// Other config examples:
+Object.freeze({
+    adapters: {
+        tingo: waterline_tingo
+    },
+    connections: {
+        main_db: {
+            adapter: 'tingo',
+            connection: db_path,
+            dbPath: db_path,
+            nativeObjectID: false,
+            memStore: false
+        }
+    },
+    defaults: {
+        migrate: 'safe' // drop, alter, create, safe
+    }
+});
+
+Object.freeze({
+    adapters: {
+        nedb: waterline_nedb
+    },
+    connections: {
+        main_db: {
+            adapter: 'nedb',
+            connection: db_path,
+            dbPath: db_path,
+            inMemoryOnly: false
+        }
+    },
+    defaults: {
+        migrate: 'safe'
     }
 });
 
@@ -64,7 +118,7 @@ export const strapFrameworkKwargs: IStrapFramework = Object.freeze(<IStrapFramew
     root: '/api',
     skip_db: false,
     collections: c.collections,
-    waterline_config: waterline_config,
+    waterline_config: <any>waterline_config,
     use_redis: true,
     redis_cursors: redis_cursors,
     createSampleData: true,
@@ -76,10 +130,12 @@ export const strapFrameworkKwargs: IStrapFramework = Object.freeze(<IStrapFramew
 });
 
 if (require.main === module) {
-    strapFramework(Object.assign({
-        start_app: true, callback: (err, _app: Server, _connections: Connection[], _collections: Collection[]) => {
-            if (err) throw err;
-            c.collections = _collections
-        }
-    }, strapFrameworkKwargs));
+    init_db_dir(waterline_config.connections.main_db.adapter, _ =>
+        strapFramework(Object.assign({
+            start_app: true, callback: (err, _app: Server, _connections: Connection[], _collections: Collection[]) => {
+                if (err) throw err;
+                c.collections = _collections
+            }
+        }, strapFrameworkKwargs))
+    );
 }

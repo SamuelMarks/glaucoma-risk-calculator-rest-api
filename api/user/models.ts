@@ -2,7 +2,7 @@ import { IUser } from './models.d';
 
 export const User = {
     identity: 'user_tbl',
-    connection: 'postgres',
+    connection: 'main_db',
     _omit: ['password'],
     attributes: {
         title: {

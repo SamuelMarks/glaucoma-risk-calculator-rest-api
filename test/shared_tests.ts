@@ -6,7 +6,8 @@ export function tearDownConnections(connections: Connection[], cb) {
             connection => connections[connection]._adapter.teardown
         ), () => {
             Object.keys(connections).forEach(connection => {
-                connections[connection]._adapter.connections.delete(connection);
+                if (['sails-tingo', 'waterline-nedb'].indexOf(connections[connection]._adapter.identity) < 0)
+                    connections[connection]._adapter.connections.delete(connection);
             });
             cb();
         }) : cb();

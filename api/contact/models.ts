@@ -2,7 +2,7 @@ import { IContact } from './models.d';
 
 export const Contact = {
     identity: 'contact_tbl',
-    connection: 'postgres',
+    connection: 'main_db',
     _omit: [/*'uuid'*/],
     attributes: {
         name: {
