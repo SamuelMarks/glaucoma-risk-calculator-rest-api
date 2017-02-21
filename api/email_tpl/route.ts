@@ -16,10 +16,14 @@ export function read(app: restify.Server, namespace: string = ""): void {
         function (req: restify.Request, res: restify.Response, next: restify.Next) {
             const EmailTpl: Query = c.collections['email_tpl_tbl'];
 
-            EmailTpl.findOne({createdAt: req.params.createdAt}).exec((error: WLError, email_tpl: IEmailTpl) => {
+            const q = req.params.createdAt === 'latest' ?
+                EmailTpl.find().sort('createdAt DESC')
+                    .limit(1) :
+                EmailTpl.findOne({createdAt: req.params.createdAt});
+            q.exec((error: WLError, email_tpl: IEmailTpl|IEmailTpl[]) => {
                 if (error) return next(fmtError(error));
                 else if (!email_tpl) return next(new NotFoundError('EmailTpl'));
-                res.json(email_tpl);
+                res.json(Array.isArray(email_tpl) ? email_tpl[0] : email_tpl);
                 return next();
             });
         }
