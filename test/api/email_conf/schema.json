@@ -1,0 +1,30 @@
+{
+    "type": "object",
+    "properties": {
+        "client_id": {
+            "type": "string"
+        },
+        "tenant_id": {
+            "type": "string"
+        },
+        "id_token": {
+            "type": "string"
+        },
+        "access_token": {
+            "type": "string"
+        },
+        "state": {
+            "type": "string"
+        },
+        "session_state": {
+            "type": "string"
+        },
+        "from": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "client_id",
+        "tenant_id"
+    ]
+}

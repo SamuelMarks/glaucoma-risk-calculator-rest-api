@@ -4,15 +4,15 @@ import { AccessToken } from './models';
 
 export function has_auth(scope = 'login') {
     return (req: restify.Request, res: restify.Response, next: restify.Next) => {
-        if (req.params.access_token)
-            req.headers['x-access-token'] = req.params.access_token;
-
         if (!req.headers['x-access-token'])
-            return next(new GenericError({
-                statusCode: 403,
-                error: 'NotFound',
-                error_message: 'X-Access-Token header must be included'
-            }));
+            if (req.params.access_token)
+                req.headers['x-access-token'] = req.params.access_token;
+            else
+                return next(new GenericError({
+                    statusCode: 403,
+                    error: 'NotFound',
+                    error_message: 'X-Access-Token header must be included'
+                }));
 
         AccessToken().findOne(
             req.headers['x-access-token'], (err, user_id) => {
